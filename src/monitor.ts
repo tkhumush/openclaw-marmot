@@ -23,7 +23,7 @@ import type { OpenClawConfig } from "openclaw/plugin-sdk/config-types";
 const execFileAsync = promisify(execFile);
 
 /** Known npubs to resolve truncated sender npubs from CLI output.
- *  marmot-cli truncates npubs in display (e.g. "npub1nje4ghpkjsx" instead of full).
+ *  marmot-cli truncates npubs in display (e.g. "npub1abc123xyz" instead of full).
  *  We match the truncated prefix against this set to recover the full npub.
  */
 let knownNpubs: string[] = [];

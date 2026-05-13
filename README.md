@@ -16,8 +16,25 @@ A native OpenClaw channel plugin that integrates `marmot-cli` into OpenClaw's me
 ## Prerequisites
 
 - [OpenClaw](https://openclaw.ai) installed and running
-- `marmot-cli` binary installed on the system (see [marmot-cli](https://github.com/tkhumush/marmot-cli))
-- A default marmot identity created and set: `marmot-cli identity create --name default && marmot-cli identity set-default default`
+- `marmot-cli` installed (see below)
+- A Nostr-compatible MLS messenger such as [White Noise](https://github.com/marmot-protocol/whitenoise) on your phone — this is how you chat with your agent from a mobile device
+
+### Installing marmot-cli
+
+```bash
+git clone https://github.com/tkhumush/marmot-cli.git
+cd marmot-cli
+cargo install --path crates/marmot-agent-cli
+```
+
+Requires Rust 1.75+. Then create and set a default identity:
+
+```bash
+marmot-cli identity create --name default
+marmot-cli identity set-default default
+```
+
+State is stored under `~/.local/share/marmot-cli/` (XDG data dir).
 
 ## Installation
 

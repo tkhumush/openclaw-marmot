@@ -1,0 +1,177 @@
+{
+  "id": "marmot",
+  "activation": {
+    "onStartup": false
+  },
+  "channels": [
+    "marmot"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "channelConfigs": {
+    "marmot": {
+      "schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "cliPath": {
+            "type": "string",
+            "default": "marmot-cli"
+          },
+          "daemonHost": {
+            "type": "string",
+            "default": "127.0.0.1"
+          },
+          "daemonPort": {
+            "type": "integer",
+            "default": 9222,
+            "exclusiveMinimum": 0,
+            "maximum": 65535
+          },
+          "autoStart": {
+            "type": "boolean",
+            "default": true
+          },
+          "startupTimeoutMs": {
+            "type": "integer",
+            "default": 30000,
+            "minimum": 5000,
+            "maximum": 120000
+          },
+          "identityName": {
+            "type": "string",
+            "default": "default"
+          },
+          "dmPolicy": {
+            "default": "open",
+            "type": "string",
+            "enum": [
+              "open",
+              "allowlist",
+              "pairing",
+              "disabled"
+            ]
+          },
+          "allowFrom": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "groupPolicy": {
+            "default": "open",
+            "type": "string",
+            "enum": [
+              "open",
+              "allowlist",
+              "disabled"
+            ]
+          },
+          "groupAllowFrom": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "pollIntervalMs": {
+            "type": "integer",
+            "default": 5000,
+            "minimum": 1000,
+            "maximum": 60000
+          },
+          "textChunkLimit": {
+            "type": "integer",
+            "default": 4000,
+            "exclusiveMinimum": 0
+          },
+          "historyLimit": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 50
+          },
+          "reactionNotifications": {
+            "type": "string",
+            "enum": [
+              "off",
+              "own",
+              "all"
+            ],
+            "default": "off"
+          },
+          "actions": {
+            "type": "object",
+            "properties": {
+              "reactions": {
+                "type": "boolean",
+                "default": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "dmPolicy",
+          "groupPolicy"
+        ],
+        "additionalProperties": false
+      },
+      "label": "Marmot",
+      "description": "End-to-end encrypted Nostr messaging via MLS (Marmot Protocol). Requires marmot-cli.",
+      "uiHints": {
+        "": {
+          "label": "Marmot",
+          "help": "Marmot Protocol channel configuration. Uses MLS end-to-end encryption over Nostr relays."
+        },
+        "cliPath": {
+          "label": "CLI Path",
+          "help": "Path to marmot-cli binary (default: marmot-cli)"
+        },
+        "daemonHost": {
+          "label": "Daemon Host",
+          "help": "JSON-RPC daemon host (default: 127.0.0.1)"
+        },
+        "daemonPort": {
+          "label": "Daemon Port",
+          "help": "JSON-RPC daemon port (default: 9222)"
+        },
+        "autoStart": {
+          "label": "Auto Start",
+          "help": "Start marmot-cli daemon automatically with gateway"
+        },
+        "identityName": {
+          "label": "Identity",
+          "help": "marmot-cli identity name to use (default: default)"
+        },
+        "dmPolicy": {
+          "label": "DM Policy",
+          "help": "Who can send you direct messages (default: open)"
+        },
+        "allowFrom": {
+          "label": "Allow From",
+          "help": "Nostr npubs allowed to DM when dmPolicy is 'allowlist'"
+        },
+        "groupPolicy": {
+          "label": "Group Policy",
+          "help": "Who can add you to groups (default: open)"
+        },
+        "groupAllowFrom": {
+          "label": "Group Allow From",
+          "help": "Group IDs or npubs allowed when groupPolicy is 'allowlist'"
+        },
+        "pollIntervalMs": {
+          "label": "Poll Interval (ms)",
+          "help": "How often to check for new messages (default: 5000ms)"
+        }
+      }
+    }
+  }
+}

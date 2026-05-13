@@ -1,0 +1,53 @@
+{
+  "name": "@openclaw/marmot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenClaw channel plugin for Marmot Protocol — end-to-end encrypted Nostr messaging via MLS",
+  "type": "module",
+  "main": "./dist/channel-entry.js",
+  "types": "./dist/channel-entry.d.ts",
+  "exports": {
+    ".": "./dist/channel-entry.js",
+    "./api": "./dist/api.js",
+    "./runtime-api": "./dist/runtime-api.js",
+    "./setup-entry": "./dist/setup-entry.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "openclaw": "2026.5.7"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/channel-entry.js"
+    ],
+    "setupEntry": "./dist/setup-entry.js",
+    "channel": {
+      "id": "marmot",
+      "label": "Marmot",
+      "selectionLabel": "Marmot (marmot-cli)",
+      "detailLabel": "Marmot Protocol MLS",
+      "docsPath": "/channels/marmot",
+      "docsLabel": "marmot",
+      "blurb": "End-to-end encrypted Nostr messaging via MLS. Requires marmot-cli.",
+      "systemImage": "lock.shield",
+      "markdownCapable": true,
+      "cliAddOptions": [
+        {
+          "flags": "--marmot-npub <npub>",
+          "description": "Marmot identity npub"
+        },
+        {
+          "flags": "--daemon-port <port>",
+          "description": "Marmot daemon JSON-RPC port"
+        }
+      ]
+    }
+  }
+}

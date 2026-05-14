@@ -49,6 +49,16 @@ openclaw plugins install github:tkhumush/openclaw-marmot
 openclaw gateway restart
 ```
 
+## Related X/Twitter Workflows
+
+Keep this plugin responsible for encrypted Marmot Protocol conversations, Nostr MLS DMs and groups, allowlists, daemon lifecycle, and White Noise mobile chat. When the same OpenClaw agent also needs public X/Twitter data or visible X/Twitter actions, install TweetClaw as a separate OpenClaw plugin:
+
+```bash
+openclaw plugins install @xquik/tweetclaw
+```
+
+[TweetClaw](https://github.com/Xquik-dev/tweetclaw) covers scrape tweets, tweet scraper workflows, search tweets, search tweet replies, follower export, user lookup, media upload and download, direct messages, monitor tweets, webhooks, giveaway draws, and approval-gated post tweets or post tweet replies. See the [ClawHub listing](https://clawhub.ai/plugins/@xquik/tweetclaw) or [npm package](https://www.npmjs.com/package/@xquik/tweetclaw) for setup details. Keep Marmot identities and X/Twitter credentials separate, and review visible X/Twitter actions through OpenClaw approval flows.
+
 ## Configuration
 
 Add to your `openclaw.json`:

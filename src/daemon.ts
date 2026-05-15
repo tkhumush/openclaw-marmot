@@ -154,6 +154,21 @@ export class MarmotDaemonClient {
     }, 30000);
   }
 
+  /** Send a kind 7 emoji reaction to a specific message inside a group */
+  async sendReaction(
+    groupId: string,
+    targetEventId: string,
+    emoji: string,
+    publish = true
+  ): Promise<{ sent: boolean; event_id?: string }> {
+    return this.rpc("send_reaction", {
+      group_id: groupId,
+      target_event_id: targetEventId,
+      emoji,
+      publish,
+    });
+  }
+
   /** Trigger a receive cycle (fetch new messages from relays) */
   async receive(): Promise<{ new_messages: number; new_welcomes: number }> {
     return this.rpc("receive", {});

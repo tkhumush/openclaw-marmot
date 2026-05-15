@@ -25,14 +25,15 @@ export function parseMessageLine(
   const trimmed = line.trim();
   if (!trimmed) return null;
 
-  // Match: [timestamp] npubXXXXX: message text
+  // Match: [timestamp] evid:HEXID npubXXXXX: message text
+  // evid: prefix is optional (older daemon versions omit it)
   const match = trimmed.match(
-    /^\[(\d+)\]\s+(npub[a-zA-Z0-9]+):\s(.*)$/
+    /^\[(\d+)\]\s+(?:evid:([a-f0-9]+)\s+)?(npub[a-zA-Z0-9]+):\s(.*)$/
   );
 
   if (!match) return null;
 
-  const [, timestampStr, senderNpub, text] = match;
+  const [, timestampStr, eventId, senderNpub, text] = match;
   if (!timestampStr || !senderNpub || text === undefined) return null;
 
   return {
@@ -41,6 +42,7 @@ export function parseMessageLine(
     text: text.trim(),
     groupId,
     isGroup,
+    eventId: eventId ?? undefined,
   };
 }
 

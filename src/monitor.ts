@@ -18,6 +18,10 @@ import { MarmotDaemonClient } from "./daemon.js";
 import { parseMessagesOutput, filterNewMessages, buildInboundContext } from "./normalize.js";
 import { isDmSenderAllowed, isGroupAllowed } from "./security.js";
 import { dispatchInboundDirectDmWithRuntime } from "openclaw/plugin-sdk/channel-inbound";
+import {
+  createStatusReactionController,
+  type StatusReactionEmojis,
+} from "openclaw/plugin-sdk/channel-feedback";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/config-types";
 
 const execFileAsync = promisify(execFile);
@@ -35,10 +39,24 @@ function resolveNpub(truncated: string): string {
   return match ?? truncated;
 }
 
+const STATUS_EMOJIS: StatusReactionEmojis = {
+  queued:     "📬",
+  thinking:   "🧠",
+  tool:       "⚙️",
+  coding:     "⚙️",
+  web:        "🔍",
+  done:       "✅",
+  error:      "❌",
+  stallSoft:  "⏳",
+  stallHard:  "🔴",
+  compacting: "🗜️",
+};
+
 /** Create a fresh monitor state */
 export function createMonitorState(): MonitorState {
   return {
     lastSeenTimestamps: new Map(),
+    lastInboundEventIds: new Map(),
     lastPollAt: 0,
     started: false,
   };
@@ -255,12 +273,66 @@ export async function monitorMarmotProvider(params: {
             continue;
           }
 
+          // Track the event_id of the most recent inbound message per group
+          // (used as the reaction target for status emoji)
+          if (msg.eventId) {
+            state.lastInboundEventIds.set(groupId, msg.eventId);
+          }
+
           // Dispatch inbound DM to OpenClaw
           if (channelRuntime) {
             try {
+              const reactionGroupId = groupId;
+              const reactionEventId = msg.eventId;
+              const reactionClient = new MarmotDaemonClient(config.baseUrl);
+
+              const statusController = createStatusReactionController({
+                enabled: !!reactionEventId,
+                adapter: {
+                  setReaction: async (emoji) => {
+                    if (!reactionEventId) return;
+                    try {
+                      await reactionClient.sendReaction(reactionGroupId, reactionEventId, emoji);
+                    } catch (err) {
+                      log?.error?.(`[${accountId}] reaction send failed: ${err}`);
+                    }
+                  },
+                },
+                initialEmoji: STATUS_EMOJIS.queued!,
+                emojis: STATUS_EMOJIS,
+                onError: (err) => log?.error?.(`[${accountId}] status reaction error: ${err}`),
+              });
+
+              // Wrap channelRuntime to inject onToolStart and onCompactionStart
+              // into the reply dispatcher's replyOptions.
+              const wrappedRuntime = {
+                ...channelRuntime,
+                reply: {
+                  ...channelRuntime.reply,
+                  dispatchReplyWithBufferedBlockDispatcher: async (params: any) => {
+                    return channelRuntime.reply.dispatchReplyWithBufferedBlockDispatcher({
+                      ...params,
+                      replyOptions: {
+                        ...params.replyOptions,
+                        onToolStart: async (info: { name?: string }) => {
+                          statusController.setTool(info.name);
+                          return params.replyOptions?.onToolStart?.(info);
+                        },
+                        onCompactionStart: async () => {
+                          statusController.setCompacting();
+                          return params.replyOptions?.onCompactionStart?.();
+                        },
+                      },
+                    });
+                  },
+                },
+              };
+
+              await statusController.setThinking();
+
               await dispatchInboundDirectDmWithRuntime({
                 cfg,
-                runtime: { channel: channelRuntime },
+                runtime: { channel: wrappedRuntime },
                 channel: "marmot",
                 channelLabel: "Marmot",
                 accountId,
@@ -273,13 +345,16 @@ export async function monitorMarmotProvider(params: {
                 messageId: `marmot-${msg.groupId}-${msg.timestamp}`,
                 timestamp: msg.timestamp,
                 deliver: async (payload) => {
-                  // Outbound delivery — send via marmot daemon
-                  const client = new MarmotDaemonClient(config.baseUrl);
-                  const result = await client.sendMessage(msg.groupId, payload.text ?? "");
+                  const sendClient = new MarmotDaemonClient(config.baseUrl);
+                  const result = await sendClient.sendMessage(msg.groupId, payload.text ?? "");
                   log?.info?.(`[${accountId}] delivered reply to ${msg.senderNpub}: ${result.event_id ?? "ok"}`);
+                  await statusController.setDone();
                 },
                 onRecordError: (err) => log?.error?.(`[${accountId}] record error: ${err}`),
-                onDispatchError: (err, info) => log?.error?.(`[${accountId}] dispatch error (${info.kind}): ${err}`),
+                onDispatchError: async (err, info) => {
+                  log?.error?.(`[${accountId}] dispatch error (${info.kind}): ${err}`);
+                  await statusController.setError();
+                },
               });
               log?.info?.(`[${accountId}] dispatched inbound DM from ${msg.senderNpub}`);
             } catch (err) {
@@ -318,12 +393,62 @@ export async function monitorMarmotProvider(params: {
           // Skip self-messages
           if (msg.senderNpub === ourNpub) continue;
 
+          if (msg.eventId) {
+            state.lastInboundEventIds.set(groupId, msg.eventId);
+          }
+
           // TODO: Group dispatch — use dispatchInboundGroupMessageWithRuntime when available
           if (channelRuntime) {
             try {
+              const reactionGroupId = groupId;
+              const reactionEventId = msg.eventId;
+              const reactionClient = new MarmotDaemonClient(config.baseUrl);
+
+              const statusController = createStatusReactionController({
+                enabled: !!reactionEventId,
+                adapter: {
+                  setReaction: async (emoji) => {
+                    if (!reactionEventId) return;
+                    try {
+                      await reactionClient.sendReaction(reactionGroupId, reactionEventId, emoji);
+                    } catch (err) {
+                      log?.error?.(`[${accountId}] reaction send failed: ${err}`);
+                    }
+                  },
+                },
+                initialEmoji: STATUS_EMOJIS.queued!,
+                emojis: STATUS_EMOJIS,
+                onError: (err) => log?.error?.(`[${accountId}] status reaction error: ${err}`),
+              });
+
+              const wrappedRuntime = {
+                ...channelRuntime,
+                reply: {
+                  ...channelRuntime.reply,
+                  dispatchReplyWithBufferedBlockDispatcher: async (params: any) => {
+                    return channelRuntime.reply.dispatchReplyWithBufferedBlockDispatcher({
+                      ...params,
+                      replyOptions: {
+                        ...params.replyOptions,
+                        onToolStart: async (info: { name?: string }) => {
+                          statusController.setTool(info.name);
+                          return params.replyOptions?.onToolStart?.(info);
+                        },
+                        onCompactionStart: async () => {
+                          statusController.setCompacting();
+                          return params.replyOptions?.onCompactionStart?.();
+                        },
+                      },
+                    });
+                  },
+                },
+              };
+
+              await statusController.setThinking();
+
               await dispatchInboundDirectDmWithRuntime({
                 cfg,
-                runtime: { channel: channelRuntime },
+                runtime: { channel: wrappedRuntime },
                 channel: "marmot",
                 channelLabel: "Marmot",
                 accountId,
@@ -336,12 +461,16 @@ export async function monitorMarmotProvider(params: {
                 messageId: `marmot-${groupId}-${msg.timestamp}`,
                 timestamp: msg.timestamp,
                 deliver: async (payload) => {
-                  const client = new MarmotDaemonClient(config.baseUrl);
-                  const result = await client.sendMessage(groupId, payload.text ?? "");
+                  const sendClient = new MarmotDaemonClient(config.baseUrl);
+                  const result = await sendClient.sendMessage(groupId, payload.text ?? "");
                   log?.info?.(`[${accountId}] delivered group reply to ${groupId}: ${result.event_id ?? "ok"}`);
+                  await statusController.setDone();
                 },
                 onRecordError: (err) => log?.error?.(`[${accountId}] record error: ${err}`),
-                onDispatchError: (err, info) => log?.error?.(`[${accountId}] dispatch error (${String(info.kind)}): ${err}`),
+                onDispatchError: async (err, info) => {
+                  log?.error?.(`[${accountId}] dispatch error (${String(info.kind)}): ${err}`);
+                  await statusController.setError();
+                },
               });
               log?.info?.(`[${accountId}] dispatched inbound group msg from ${msg.senderNpub} in ${group.name ?? groupId}`);
             } catch (err) {

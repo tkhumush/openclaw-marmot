@@ -61,7 +61,7 @@ export const marmotPlugin = createChatChannelPlugin<MarmotAccountConfig>({
     capabilities: {
       chatTypes: ["direct", "group"] as const,
       media: false,
-      reactions: false,
+      reactions: true,
     },
     reload: {
       configPrefixes: ["channels.marmot"],

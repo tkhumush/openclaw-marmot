@@ -94,6 +94,7 @@ export interface ParsedMarmotMessage {
   text: string;
   groupId: string;
   isGroup: boolean;
+  eventId?: string;
 }
 
 /** Resolved outbound target */
@@ -119,6 +120,7 @@ export interface DaemonState {
 /** Monitor state for tracking seen messages */
 export interface MonitorState {
   lastSeenTimestamps: Map<string, number>;
+  lastInboundEventIds: Map<string, string>;
   lastPollAt: number;
   started: boolean;
 }

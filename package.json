@@ -1,5 +1,5 @@
 {
-  "name": "@openclaw/marmot",
+  "name": "@tkhumush/marmot",
   "version": "0.1.0",
 "description": "OpenClaw channel plugin for Marmot Protocol — end-to-end encrypted Nostr messaging via MLS",
   "type": "module",

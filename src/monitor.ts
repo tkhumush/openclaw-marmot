@@ -217,7 +217,18 @@ export async function monitorMarmotProvider(params: {
         knownNpubs.push(ourNpub);
       }
 
-      // 3. Classify groups into DMs and named groups
+      // 3. On first poll, seed all groups with the current timestamp so that
+      // messages received before this restart are not re-dispatched to the agent.
+      if (!state.started) {
+        const nowSecs = Math.floor(Date.now() / 1000);
+        for (const g of allGroups) {
+          if (!state.lastSeenTimestamps.has(g.nostr_id)) {
+            state.lastSeenTimestamps.set(g.nostr_id, nowSecs);
+          }
+        }
+      }
+
+      // 4. Classify groups into DMs and named groups
       // DMs: groups with name starting "dm:", "<DM", or empty name (1:1 conversations)
       // Named groups: groups with a meaningful name that's not a DM pattern
       const dms = allGroups.filter(
@@ -232,7 +243,7 @@ export async function monitorMarmotProvider(params: {
         log?.info?.(`[${accountId}] DM groups: ${dms.map((g) => g.name + "=" + g.nostr_id.slice(0, 8)).join(", ")}`);
       }
 
-      // 4. Poll each DM for new messages
+      // 5. Poll each DM for new messages
       for (const dm of dms) {
         if (abortSignal.aborted) break;
 
@@ -371,7 +382,7 @@ export async function monitorMarmotProvider(params: {
         }
       }
 
-      // 5. Poll each named group for new messages
+      // 6. Poll each named group for new messages
       for (const group of namedGroups) {
         if (abortSignal.aborted) break;
 

@@ -26,18 +26,6 @@ import type { OpenClawConfig } from "openclaw/plugin-sdk/config-types";
 
 const execFileAsync = promisify(execFile);
 
-/** Known npubs to resolve truncated sender npubs from CLI output.
- *  marmot-cli truncates npubs in display (e.g. "npub1abc123xyz" instead of full).
- *  We match the truncated prefix against this set to recover the full npub.
- */
-let knownNpubs: string[] = [];
-
-/** Resolve a potentially truncated npub to its full form */
-function resolveNpub(truncated: string): string {
-  if (truncated.length >= 59) return truncated; // already full
-  const match = knownNpubs.find((full) => full.startsWith(truncated));
-  return match ?? truncated;
-}
 
 const STATUS_EMOJIS: StatusReactionEmojis = {
   queued:     "📬",
@@ -149,10 +137,6 @@ async function fetchMessagesSince(
   try {
     const output = await execMarmotCli(cliPath, args);
     const messages = parseMessagesOutput(output, groupId, isGroup);
-    // Resolve truncated npubs to full form
-    for (const msg of messages) {
-      msg.senderNpub = resolveNpub(msg.senderNpub);
-    }
     return filterNewMessages(messages, sinceTimestamp);
   } catch (err) {
     // One failing group shouldn't break the whole poll
@@ -199,25 +183,7 @@ export async function monitorMarmotProvider(params: {
       const groupsResult = await client.listGroups();
       const allGroups = groupsResult.groups ?? [];
 
-      // 2. Update known npub set for resolving truncated sender npubs from CLI output.
-      // Seed from allowFrom (full npubs we already know) so the allowlist check
-      // works even when group names are empty and don't contain npubs.
-      for (const npub of (config.allowFrom ?? []).filter((v): v is string => typeof v === "string")) {
-        if (!knownNpubs.includes(npub)) knownNpubs.push(npub);
-      }
-      for (const g of allGroups) {
-        if (g.name) {
-          const npubMatch = g.name.match(/(npub[a-zA-Z0-9]+)/);
-          if (npubMatch && !knownNpubs.includes(npubMatch[1])) {
-            knownNpubs.push(npubMatch[1]);
-          }
-        }
-      }
-      if (!knownNpubs.includes(ourNpub)) {
-        knownNpubs.push(ourNpub);
-      }
-
-      // 3. On first poll, seed all groups with the current timestamp so that
+      // 2. On first poll, seed all groups with the current timestamp so that
       // messages received before this restart are not re-dispatched to the agent.
       if (!state.started) {
         const nowSecs = Math.floor(Date.now() / 1000);

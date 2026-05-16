@@ -1,8 +1,7 @@
 {
   "name": "@openclaw/marmot",
   "version": "0.1.0",
-  "private": true,
-  "description": "OpenClaw channel plugin for Marmot Protocol — end-to-end encrypted Nostr messaging via MLS",
+"description": "OpenClaw channel plugin for Marmot Protocol — end-to-end encrypted Nostr messaging via MLS",
   "type": "module",
   "main": "./dist/channel-entry.js",
   "types": "./dist/channel-entry.d.ts",
@@ -24,6 +23,12 @@
     "typescript": "^5.8.0"
   },
   "openclaw": {
+    "compat": {
+      "pluginApi": "1"
+    },
+    "build": {
+      "openclawVersion": "2026.5.7"
+    },
     "extensions": [
       "./dist/channel-entry.js"
     ],

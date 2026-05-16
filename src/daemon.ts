@@ -154,6 +154,27 @@ export class MarmotDaemonClient {
     }, 30000);
   }
 
+  /** Get members of a group, returned as full npubs */
+  async getMembers(groupId: string): Promise<{ members: Array<{ npub: string }> }> {
+    return this.rpc("get_members", { group_id: groupId });
+  }
+
+  /** Get messages for a group, newest first, filtered to kind 9 chat messages */
+  async getMessages(
+    groupId: string,
+    params?: { limit?: number; after?: number }
+  ): Promise<{
+    messages: Array<{
+      event_id: string;
+      sender_npub: string;
+      content: string;
+      timestamp: number;
+      kind: number;
+    }>;
+  }> {
+    return this.rpc("get_messages", { group_id: groupId, ...params });
+  }
+
   /** Send a kind 7 emoji reaction to a specific message inside a group */
   async sendReaction(
     groupId: string,

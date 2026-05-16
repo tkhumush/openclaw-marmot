@@ -11,11 +11,8 @@
  * Phase 3+ will add daemon subscribe RPC for real-time push.
  */
 
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import type { MarmotAccountConfig, MonitorState, ParsedMarmotMessage } from "./types.js";
 import { MarmotDaemonClient } from "./daemon.js";
-import { parseMessagesOutput, filterNewMessages, buildInboundContext } from "./normalize.js";
 import { isDmSenderAllowed, isGroupAllowed } from "./security.js";
 import { dispatchInboundDirectDmWithRuntime } from "openclaw/plugin-sdk/channel-inbound";
 import {
@@ -23,9 +20,6 @@ import {
   type StatusReactionEmojis,
 } from "openclaw/plugin-sdk/channel-feedback";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/config-types";
-
-const execFileAsync = promisify(execFile);
-
 
 const STATUS_EMOJIS: StatusReactionEmojis = {
   queued:     "📬",
@@ -50,96 +44,27 @@ export function createMonitorState(): MonitorState {
   };
 }
 
-/** Execute a marmot-cli command and return stdout */
-async function execMarmotCli(
-  cliPath: string,
-  args: string[],
-  timeoutMs = 15000
-): Promise<string> {
-  const { stdout } = await execFileAsync(cliPath, args, {
-    timeout: timeoutMs,
-    maxBuffer: 1024 * 1024,
-  });
-  return stdout.trim();
-}
-
-/** Get all DM conversations from marmot-cli
- *
- *  marmot-cli dm list output format:
- *    'dm:npub1...' (nostr-id: hex)     — old format
- *    '<DM with npub1...>' (nostr-id: hex)  — new format (resolving npub)
- */
-async function listDmConversations(
-  cliPath: string
-): Promise<Array<{ groupId: string; peer: string }>> {
-  try {
-    const output = await execMarmotCli(cliPath, ["dm", "list"]);
-    const conversations: Array<{ groupId: string; peer: string }> = [];
-    for (const line of output.split("\n")) {
-      // Match both (Group: hex) and (nostr-id: hex) formats
-      const match = line.match(/\((?:Group|nostr-id):\s*([a-f0-9]+)\)/i);
-      const peerMatch = line.match(/(npub[a-zA-Z0-9]+)/i);
-      if (match?.[1]) {
-        conversations.push({
-          groupId: match[1],
-          peer: peerMatch?.[1] ?? "",
-        });
-      }
-    }
-    return conversations;
-  } catch {
-    return [];
-  }
-}
-
-/** Get all group conversations from marmot-cli
- *
- *  marmot-cli groups list output format:
- *    'group-name' (nostr-id: hex)
- */
-async function listGroupConversations(
-  cliPath: string
-): Promise<Array<{ groupId: string; name: string }>> {
-  try {
-    const output = await execMarmotCli(cliPath, ["groups", "list"]);
-    const groups: Array<{ groupId: string; name: string }> = [];
-    for (const line of output.split("\n")) {
-      // Match both (Group: hex) and (nostr-id: hex) formats
-      const match = line.match(/\((?:Group|nostr-id):\s*([a-f0-9]+)\)/i);
-      const nameMatch = line.match(/'([^']+)'/);
-      if (match?.[1]) {
-        groups.push({
-          groupId: match[1],
-          name: nameMatch?.[1] ?? match[1],
-        });
-      }
-    }
-    return groups;
-  } catch {
-    return [];
-  }
-}
-
-/** Fetch new messages for a specific group since a given timestamp */
+/** Fetch new messages for a group via daemon RPC (replaces CLI text scraping) */
 async function fetchMessagesSince(
-  cliPath: string,
+  client: MarmotDaemonClient,
   groupId: string,
   sinceTimestamp: number,
   isGroup: boolean
 ): Promise<ParsedMarmotMessage[]> {
-  const subcommand = isGroup ? "groups" : "dm";
-  const args = [subcommand, "messages", "--group", groupId];
-
-  if (sinceTimestamp > 0) {
-    args.push("--after", sinceTimestamp.toString());
-  }
-
   try {
-    const output = await execMarmotCli(cliPath, args);
-    const messages = parseMessagesOutput(output, groupId, isGroup);
-    return filterNewMessages(messages, sinceTimestamp);
+    const result = await client.getMessages(groupId, {
+      limit: 50,
+      after: sinceTimestamp > 0 ? sinceTimestamp : undefined,
+    });
+    return result.messages.map((m) => ({
+      timestamp: m.timestamp,
+      senderNpub: m.sender_npub,
+      text: m.content,
+      groupId,
+      isGroup,
+      eventId: m.event_id,
+    }));
   } catch (err) {
-    // One failing group shouldn't break the whole poll
     console.error(`[marmot-monitor] Error fetching messages for ${groupId}:`, err);
     return [];
   }
@@ -216,7 +141,7 @@ export async function monitorMarmotProvider(params: {
         const groupId = dm.nostr_id;
         const lastSeen = state.lastSeenTimestamps.get(groupId) ?? 0;
         const messages = await fetchMessagesSince(
-          config.cliPath,
+          client,
           groupId,
           lastSeen,
           false
@@ -358,7 +283,7 @@ export async function monitorMarmotProvider(params: {
         const groupId = group.nostr_id;
         const lastSeen = state.lastSeenTimestamps.get(groupId) ?? 0;
         const messages = await fetchMessagesSince(
-          config.cliPath,
+          client,
           groupId,
           lastSeen,
           true
